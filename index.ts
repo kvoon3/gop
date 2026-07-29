@@ -2,12 +2,16 @@
 import { $ } from "bun"
 import { createCliRenderer, Select, SelectRenderableEvents } from "@opentui/core"
 
+// ponytail: github.com + tangled.org only; self-hosted Tangled knot remotes aren't matched — map their path onto tangled.org when needed
 type Candidate = { label: string; url: string; repoDir: string; remote: string }
 
-// ponytail: GitHub-only; generalize to {host, owner, repo} per-platform when a second platform lands
-function parseGithub(url: string): { owner: string; repo: string } | null {
-  const m = url.match(/github\.com[:/]([^/]+)\/([^/]+?)(?:\.git)?\/?$/)
-  return m ? { owner: m[1], repo: m[2] } : null
+// Returns the web URL of the repo root, or null if the remote isn't a known platform
+function repoWebUrl(url: string): string | null {
+  const gh = url.match(/github\.com[:/]([^/]+)\/([^/]+?)(?:\.git)?\/?$/)
+  if (gh) return `https://github.com/${gh[1]}/${gh[2]}`
+  const tg = url.match(/tangled\.org[:/](.+\/[^/]+?)(?:\.git)?\/?$/)
+  if (tg) return `https://tangled.org/${tg[1]}`
+  return null
 }
 
 async function remotesOf(repoDir: string, suffix = ""): Promise<Candidate[]> {
@@ -26,13 +30,12 @@ async function candidates(): Promise<Candidate[]> {
   const submodules = (await $`git -C ${root} submodule foreach --quiet 'echo $sm_path'`.quiet().nothrow().text())
     .split("\n").map(s => s.trim()).filter(Boolean)
   for (const sm of submodules) list.push(...await remotesOf(`${root}/${sm}`, ` (${sm})`))
-  return list.filter(c => parseGithub(c.url))
+  return list.filter(c => repoWebUrl(c.url))
 }
 
 async function targetUrl(c: Candidate): Promise<string> {
-  const gh = parseGithub(c.url)
-  if (!gh) throw new Error("unreachable") // filtered in candidates()
-  const base = `https://github.com/${gh.owner}/${gh.repo}`
+  const base = repoWebUrl(c.url)
+  if (!base) throw new Error("unreachable") // filtered in candidates()
   const branch = (await $`git -C ${c.repoDir} branch --show-current`.quiet().text()).trim()
   if (!branch) return base // detached HEAD
   const exists = (await $`git -C ${c.repoDir} rev-parse --verify --quiet refs/remotes/${c.remote}/${branch}`.quiet().nothrow()).exitCode
@@ -49,7 +52,7 @@ const list = await candidates().catch(() => {
   process.exit(1)
 })
 if (list.length === 0) {
-  console.error("gop: no GitHub remotes configured")
+  console.error("gop: no supported (GitHub/Tangled) remotes configured")
   process.exit(1)
 }
 

@@ -27,3 +27,21 @@ test("https remote, branch not on remote falls back to root", async () => {
   const r = await $`bun ${gop}`.cwd(repo).env({ ...process.env, GOP_DRY_RUN: "1" }).quiet()
   expect(r.stdout.toString().trim()).toBe("https://github.com/foo/baz")
 })
+
+test("tangled ssh remote with handle", async () => {
+  const repo = `${tmp}/c`
+  await $`git init -q -b main ${repo}`.quiet()
+  await $`git -C ${repo} remote add origin git@tangled.org:markbennett.ca/tangled-cli`.quiet()
+  await $`git -C ${repo} commit -q --allow-empty -m init`.quiet()
+  await $`git -C ${repo} update-ref refs/remotes/origin/main HEAD`.quiet()
+  const r = await $`bun ${gop}`.cwd(repo).env({ ...process.env, GOP_DRY_RUN: "1" }).quiet()
+  expect(r.stdout.toString().trim()).toBe("https://tangled.org/markbennett.ca/tangled-cli/tree/main")
+})
+
+test("tangled ssh remote with did", async () => {
+  const repo = `${tmp}/d`
+  await $`git init -q -b main ${repo}`.quiet()
+  await $`git -C ${repo} remote add origin git@tangled.org:did:plc:s5xj26wres6izvpg4axs22wi/tangled-cli`.quiet()
+  const r = await $`bun ${gop}`.cwd(repo).env({ ...process.env, GOP_DRY_RUN: "1" }).quiet()
+  expect(r.stdout.toString().trim()).toBe("https://tangled.org/did:plc:s5xj26wres6izvpg4axs22wi/tangled-cli")
+})
