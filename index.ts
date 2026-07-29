@@ -73,6 +73,11 @@ const menu = Select({
   width: 60,
   height: list.length + 2,
   options: list.map(c => ({ name: c.label, description: c.url })),
+  wrapSelection: true,
+  keyBindings: [
+    { name: "n", ctrl: true, action: "move-down" },
+    { name: "p", ctrl: true, action: "move-up" },
+  ],
 })
 const applyTheme = (mode: "dark" | "light" | null) => Object.assign(menu, palettes[mode ?? "dark"])
 applyTheme(await renderer.waitForThemeMode())
