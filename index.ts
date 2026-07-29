@@ -90,7 +90,7 @@ menu.on(SelectRenderableEvents.ITEM_SELECTED, async (i: number) => {
   process.exit(0)
 })
 renderer.keyInput.on("keypress", key => {
-  if (key.name === "escape") { renderer.destroy(); process.exit(0) }
+  if (key.name === "escape" || (!key.ctrl && !key.meta && key.name === "q")) { renderer.destroy(); process.exit(0) }
 })
 menu.focus()
 renderer.root.add(menu)
