@@ -63,20 +63,20 @@ if (list.length === 1) {
   process.exit(0)
 }
 
-// ponytail: read once at startup, no live switching; non-macOS assumes dark
-const dark = process.platform !== "darwin" ||
-  (await $`defaults read -g AppleInterfaceStyle`.quiet().nothrow().text()).trim() === "Dark"
-const theme = dark
-  ? { textColor: "#e5e5e5", descriptionColor: "#888888", selectedBackgroundColor: "#33445e", selectedTextColor: "#ffffff" }
-  : { textColor: "#1a1a1a", descriptionColor: "#777777", selectedBackgroundColor: "#d7d7d7", selectedTextColor: "#000000" }
+const palettes = {
+  dark: { backgroundColor: "transparent", textColor: "#e5e5e5", descriptionColor: "#888888", focusedBackgroundColor: "transparent", focusedTextColor: "#e5e5e5", selectedBackgroundColor: "#33445e", selectedTextColor: "#ffffff", selectedDescriptionColor: "#aaaaaa" },
+  light: { backgroundColor: "transparent", textColor: "#1a1a1a", descriptionColor: "#777777", focusedBackgroundColor: "transparent", focusedTextColor: "#1a1a1a", selectedBackgroundColor: "#d7d7d7", selectedTextColor: "#000000", selectedDescriptionColor: "#555555" },
+}
 
-const renderer = await createCliRenderer({ exitOnCtrlC: true })
+const renderer = await createCliRenderer({ exitOnCtrlC: true, screenMode: "main-screen" })
 const menu = Select({
   width: 60,
   height: list.length + 2,
   options: list.map(c => ({ name: c.label, description: c.url })),
-  ...theme,
 })
+const applyTheme = (mode: "dark" | "light" | null) => Object.assign(menu, palettes[mode ?? "dark"])
+applyTheme(await renderer.waitForThemeMode())
+renderer.on("theme_mode", applyTheme)
 menu.on(SelectRenderableEvents.ITEM_SELECTED, async (i: number) => {
   const url = await targetUrl(list[i])
   renderer.destroy()
