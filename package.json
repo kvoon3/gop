@@ -1,0 +1,21 @@
+{
+  "name": "gop",
+  "module": "index.ts",
+  "type": "module",
+  "private": true,
+  "devDependencies": {
+    "@types/bun": "latest"
+  },
+  "peerDependencies": {
+    "typescript": "^5"
+  },
+  "dependencies": {
+    "@opentui/core": "^0.4.5"
+  },
+  "bin": {
+    "gop": "./index.ts"
+  },
+  "scripts": {
+    "test": "bun test"
+  }
+}
