@@ -68,16 +68,67 @@ const palettes = {
   light: { backgroundColor: "transparent", textColor: "#1a1a1a", descriptionColor: "#777777", focusedBackgroundColor: "transparent", focusedTextColor: "#1a1a1a", selectedBackgroundColor: "#d7d7d7", selectedTextColor: "#000000", selectedDescriptionColor: "#555555" },
 }
 
+function wrapText(text: string, width: number): string[] {
+  if (width <= 0) return [""]
+  const lines: string[] = []
+  for (let i = 0; i < text.length; i += width) lines.push(text.slice(i, i + width))
+  return lines
+}
+
 const renderer = await createCliRenderer({ exitOnCtrlC: true, screenMode: "main-screen" })
+const descW = Math.max(1, renderer.width - 4)
+const lpi = 1 + Math.max(1, ...list.map(c => Math.ceil(c.url.length / descW)))
 const menu = Select({
-  width: 60,
-  height: list.length + 2,
+  width: renderer.width,
+  height: Math.min(list.length * lpi + 2, renderer.height),
   options: list.map(c => ({ name: c.label, description: c.url })),
   wrapSelection: true,
   keyBindings: [
     { name: "n", ctrl: true, action: "move-down" },
     { name: "p", ctrl: true, action: "move-up" },
   ],
+})
+;(menu as any).linesPerItem = lpi
+;(menu as any).maxVisibleItems = Math.max(1, Math.floor(menu.height / lpi))
+
+;(menu as any).refreshFrameBuffer = function () {
+  const self = this as any
+  if (!self.frameBuffer) return
+  self.frameBuffer.clear(self._focused ? self._focusedBackgroundColor : self._backgroundColor)
+  if (self._options.length === 0) return
+  const w = Math.max(0, self.width - 4)
+  const opts = self._options.slice(self.scrollOffset, self.scrollOffset + self.maxVisibleItems)
+  for (let i = 0; i < opts.length; i++) {
+    const idx = self.scrollOffset + i
+    const opt = opts[i]
+    const sel = idx === self._selectedIndex
+    const y = i * self.linesPerItem
+    if (y + self.linesPerItem - 1 >= self.height) break
+    if (sel) self.frameBuffer.fillRect(0, y, self.width, self.linesPerItem - self._itemSpacing, self._selectedBackgroundColor)
+    const ind = self._showSelectionIndicator ? sel ? "▶ " : "  " : ""
+    const nc = sel ? self._selectedTextColor : (self._focused ? self._focusedTextColor : self._textColor)
+    self.frameBuffer.drawText(`${ind}${opt.name}`, 1, y, nc)
+    if (self._showDescription) {
+      const dc = sel ? self._selectedDescriptionColor : self._descriptionColor
+      const tx = 1 + (self._showSelectionIndicator ? 2 : 0)
+      for (const [j, line] of wrapText(opt.description, w).entries()) {
+        if (y + 1 + j < self.height) self.frameBuffer.drawText(line, tx, y + 1 + j, dc)
+      }
+    }
+  }
+  if (self._showScrollIndicator && self._options.length > self.maxVisibleItems) {
+    self.renderScrollIndicatorToFrameBuffer(0, 0, self.width, self.height)
+  }
+}
+
+renderer.on("resize", () => {
+  menu.width = renderer.width
+  const w = Math.max(1, renderer.width - 4)
+  const newLpi = 1 + Math.max(1, ...list.map(c => Math.ceil(c.url.length / w)))
+  ;(menu as any).linesPerItem = newLpi
+  menu.height = Math.min(list.length * newLpi + 2, renderer.height)
+  ;(menu as any).maxVisibleItems = Math.max(1, Math.floor(menu.height / newLpi))
+  menu.options = list.map(c => ({ name: c.label, description: c.url }))
 })
 const applyTheme = (mode: "dark" | "light" | null) => Object.assign(menu, palettes[mode ?? "dark"])
 applyTheme(await renderer.waitForThemeMode())
